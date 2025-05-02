@@ -1,23 +1,16 @@
-FROM node:20-alpine
+FROM node:20-alpine3.21
 
-# Установка необходимых зависимостей
-RUN apk add --no-cache libc6-compat
-
-# Установка pnpm конкретной версии
-RUN corepack enable && \
-    corepack prepare pnpm@8.15.0 --activate
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
 WORKDIR /app
 
-# Передаем исходники
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install
+
 COPY . .
 
-# Устанавливаем зависимости и прогоняем сборку
-RUN pnpm install --shamefully-hoist && \
-    pnpm build
+RUN pnpm build
 
-# Экспортируем порт
 EXPOSE 3000
 
-# Запускаем приложение
 CMD ["pnpm", "start"]
