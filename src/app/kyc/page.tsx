@@ -1,0 +1,269 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { ConnectButton } from '@rainbow-me/rainbowkit'
+import { useAccount, useReadContract, useWriteContract } from 'wagmi'
+import { Award, CheckCircle, RefreshCw, User, Wallet } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { StepCard } from '@/components/step-card'
+import { ABI } from '@/lib/web3/abi'
+import { CONTRACT_ADDRESS } from '@/lib/web3/constants'
+
+interface UserData {
+  firstName: string
+  lastName: string
+  age: number
+  did: string
+}
+
+export default function VerificationPage() {
+  const { writeContractAsync } = useWriteContract()
+
+  const { isConnected, address } = useAccount()
+
+  const [currentStep, setCurrentStep] = useState(1)
+  const [userData, setUserData] = useState<UserData | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [isDataVerified, setIsDataVerified] = useState(false)
+
+  const DID = `did:${address}`
+
+  // Generate random user data
+  const generateRandomUserData = () => {
+    const firstNames = [
+      'Александр',
+      'Иван',
+      'Сергей',
+      'Дмитрий',
+      'Михаил',
+      'Андрей',
+      'Николай',
+      'Владимир',
+    ]
+    const lastNames = [
+      'Иванов',
+      'Смирнов',
+      'Кузнецов',
+      'Попов',
+      'Васильев',
+      'Петров',
+      'Соколов',
+      'Михайлов',
+    ]
+
+    const randomFirstName =
+      firstNames[Math.floor(Math.random() * firstNames.length)]
+    const randomLastName =
+      lastNames[Math.floor(Math.random() * lastNames.length)]
+    const randomAge = Math.floor(Math.random() * (65 - 18) + 18) // Age between 18 and 65
+
+    return {
+      firstName: randomFirstName,
+      lastName: randomLastName,
+      age: randomAge,
+      did: DID,
+    }
+  }
+
+  // Handle Sber ID authorization
+  const handleSberIdAuth = () => {
+    setUserData(generateRandomUserData())
+    setIsDataVerified(true)
+    setCurrentStep(3)
+  }
+
+  // Handle regenerating user data
+  const handleRegenerateData = () => {
+    setUserData(generateRandomUserData())
+  }
+
+  // Handle NFT issuance
+  const handleIssueNFT = async () => {
+    // alert('NFT с zkKYC успешно выпущен!')
+    const result = await writeContractAsync({
+      abi: ABI,
+      address: CONTRACT_ADDRESS,
+      functionName: 'createDID',
+      args: [DID],
+    })
+    console.log(result)
+
+    setCurrentStep(4)
+  }
+
+  //   Получение DID юзера, если он у него уже есть
+  const { data: userDID } = useReadContract({
+    abi: ABI,
+    address: CONTRACT_ADDRESS,
+    functionName: 'getDIDByAddress',
+    args: [address!],
+    query: {
+      enabled: isConnected,
+    },
+  })
+
+  useEffect(() => {
+    // Move to next step when wallet is connected
+    if (isConnected && currentStep === 1) {
+      setCurrentStep(2)
+    }
+
+    if (isConnected && userDID) {
+      setCurrentStep(4)
+    }
+  }, [isConnected, currentStep, userDID])
+
+  return (
+    <main className="flex-1">
+      <section className="relative overflow-hidden bg-white py-16 md:py-24">
+        <div className="container max-w-6xl">
+          <h1 className="mb-12 text-center text-3xl font-bold tracking-tighter text-[#0F2B5B] sm:text-4xl">
+            {!userDID ? (
+              'Верификация пользователя'
+            ) : (
+              <span>DID пользователя: {userDID}</span>
+            )}
+          </h1>
+
+          {/* Verification Process */}
+          <div className="mx-auto mb-16 max-w-2xl">
+            {currentStep === 1 && (
+              <div className="rounded-lg border border-gray-200 bg-white p-8 shadow-sm">
+                <h3 className="mb-6 text-xl font-semibold text-[#0F2B5B]">
+                  Шаг 1: Подключите ваш кошелек
+                </h3>
+                <div className="flex justify-center">
+                  <ConnectButton />
+                </div>
+              </div>
+            )}
+
+            {currentStep === 2 && (
+              <div className="rounded-lg border border-gray-200 bg-white p-8 shadow-sm">
+                <h3 className="mb-6 text-xl font-semibold text-[#0F2B5B]">
+                  Шаг 2: Авторизация через Сбер ID
+                </h3>
+                <p className="mb-6 text-gray-600">
+                  Для продолжения процесса верификации, пожалуйста,
+                  авторизуйтесь через Сбер ID.
+                </p>
+                <div className="flex justify-center">
+                  <Button
+                    onClick={handleSberIdAuth}
+                    className="bg-[#21A038] hover:bg-[#21A038]/90"
+                  >
+                    Авторизоваться через Сбер ID
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {currentStep === 3 && userData && (
+              <div className="rounded-lg border border-gray-200 bg-white p-8 shadow-sm">
+                <h3 className="mb-6 text-xl font-semibold text-[#0F2B5B]">
+                  Шаг 3: Проверка данных
+                </h3>
+                <Card className="mb-6 p-6">
+                  <h4 className="mb-4 text-lg font-medium">
+                    Данные пользователя:
+                  </h4>
+                  <div className="space-y-2">
+                    <p>
+                      <span className="font-medium">Имя:</span>{' '}
+                      {userData.firstName}
+                    </p>
+                    <p>
+                      <span className="font-medium">Фамилия:</span>{' '}
+                      {userData.lastName}
+                    </p>
+                    <p>
+                      <span className="font-medium">Возраст:</span>{' '}
+                      {userData.age}
+                    </p>
+                    <p>
+                      <span className="font-medium">DID:</span> {userData.did}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-4 flex items-center gap-2"
+                    onClick={handleRegenerateData}
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Сгенерировать новые данные
+                  </Button>
+                </Card>
+                <div className="flex justify-center">
+                  <Button
+                    onClick={handleIssueNFT}
+                    className="bg-[#21A038] hover:bg-[#21A038]/90"
+                  >
+                    Выпустить NFT с zkKYC
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {currentStep === 4 && (
+              <div className="rounded-lg border border-gray-200 bg-white p-8 shadow-sm">
+                <div className="text-center">
+                  <Award className="mx-auto mb-4 h-16 w-16 text-[#21A038]" />
+                  <h3 className="mb-2 text-xl font-semibold text-[#0F2B5B]">
+                    Поздравляем!
+                  </h3>
+                  <p className="mb-6 text-gray-600">
+                    Ваш NFT с zkKYC успешно выпущен. Теперь вы можете
+                    использовать его для подтверждения вашей личности.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Steps Section */}
+          <div>
+            <h2 className="mb-12 text-center text-2xl font-bold tracking-tighter text-[#0F2B5B] sm:text-3xl">
+              Как пройти верификацию
+            </h2>
+            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+              <StepCard
+                number={1}
+                title="Подключите свой кошелек"
+                description="Используйте свой Web3 кошелек для безопасного подключения к системе"
+                icon={<Wallet className="h-10 w-10 text-[#21A038]" />}
+                active={currentStep === 1}
+                completed={currentStep > 1}
+              />
+              <StepCard
+                number={2}
+                title="Авторизация через Сбер ID"
+                description="Подтвердите свою личность через Сбер ID для верификации"
+                icon={<User className="h-10 w-10 text-[#21A038]" />}
+                active={currentStep === 2}
+                completed={currentStep > 2}
+              />
+              <StepCard
+                number={3}
+                title="Проверка данных"
+                description="Проверьте корректность ваших персональных данных"
+                icon={<CheckCircle className="h-10 w-10 text-[#21A038]" />}
+                active={currentStep === 3}
+                completed={currentStep > 3}
+              />
+              <StepCard
+                number={4}
+                title="Выпустите NFT с zkKYC"
+                description="Получите уникальный NFT-сертификат, подтверждающий вашу верификацию"
+                icon={<Award className="h-10 w-10 text-[#21A038]" />}
+                active={currentStep === 4}
+                completed={currentStep > 4}
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  )
+}

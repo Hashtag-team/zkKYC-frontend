@@ -24,7 +24,7 @@ export const SberAuthButton = () => {
         client_id: process.env.NEXT_PUBLIC_SBER_ID_CLIENT_ID!,
         redirect_uri: process.env.NEXT_PUBLIC_SBER_ID_REDIRECT_URI!,
         state: generateRandomString(),
-        scope: 'openid profile email phone',
+        scope: 'openid',
         nonce: generateRandomString(),
       },
       sa: {
