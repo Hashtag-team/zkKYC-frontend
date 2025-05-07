@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Wallet, Upload, CheckCircle, Award } from 'lucide-react'
+import { ConnectButton } from '@rainbow-me/rainbowkit'
 
 export default function Home() {
   return (
@@ -34,9 +35,10 @@ export default function Home() {
               Контакты
             </Link>
           </nav>
-          <Button className="bg-[#21A038] hover:bg-[#21A038]/90">
+          {/* <Button className="bg-[#21A038] hover:bg-[#21A038]/90">
             Подключить кошелек
-          </Button>
+          </Button> */}
+          <ConnectButton label="Подключить кошелек" />
         </div>
       </header>
 
