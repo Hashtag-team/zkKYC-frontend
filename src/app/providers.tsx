@@ -19,6 +19,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
             accentColorForeground: 'white', // Цвет текста кнопки
             borderRadius: 'medium',
           })}
+          showRecentTransactions
         >
           {children}
         </RainbowKitProvider>

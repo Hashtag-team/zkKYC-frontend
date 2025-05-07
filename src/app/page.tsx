@@ -35,9 +35,6 @@ export default function Home() {
               Контакты
             </Link>
           </nav>
-          {/* <Button className="bg-[#21A038] hover:bg-[#21A038]/90">
-            Подключить кошелек
-          </Button> */}
           <ConnectButton label="Подключить кошелек" />
         </div>
       </header>
