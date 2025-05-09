@@ -130,8 +130,7 @@ export default function VerificationPage() {
     // Опциональные параметры для обработки состояний мутации
     onSuccess: (data) => {
       console.log('Profile saved successfully:', data)
-      // Здесь можно добавить дополнительные действия после успешного сохранения
-      // Например, обновление кэша или показ уведомления
+      setCurrentStep(4)
     },
     onError: (error) => {
       console.error('Error saving profile:', error)
@@ -157,7 +156,7 @@ export default function VerificationPage() {
           age: 'Засекречено',
           did: response.data.did,
         })
-        setCurrentStep(3)
+        setCurrentStep(4)
       }
       return response.data
     },
