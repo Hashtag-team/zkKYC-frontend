@@ -3,7 +3,14 @@
 import { useState, useEffect } from 'react'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useAccount, useReadContract, useWriteContract } from 'wagmi'
-import { Award, CheckCircle, RefreshCw, User, Wallet } from 'lucide-react'
+import {
+  Award,
+  CheckCircle,
+  RefreshCw,
+  ShieldQuestion,
+  User,
+  Wallet,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { StepCard } from '@/components/step-card'
@@ -22,6 +29,9 @@ interface UserData {
   birthDate?: string // Добавляем поле для даты рождения в ISO формате
   gender?: 'F' | 'M' // Добавляем поле для пола
 }
+
+// Тип по которому проверяем веревецирванный у пользователя NFT или нет
+const CLAIM_TYPE = 'verify'
 
 export default function VerificationPage() {
   const { writeContractAsync } = useWriteContract()
@@ -185,6 +195,17 @@ export default function VerificationPage() {
     },
   })
 
+  //   Получение DID юзера, если он у него уже есть
+  const { data: checkUserNFTIsVerified } = useReadContract({
+    abi: ABI,
+    address: CONTRACT_ADDRESS,
+    functionName: 'hasValidClaim',
+    args: [userData?.did as string, CLAIM_TYPE],
+    query: {
+      enabled: !!userData?.did,
+    },
+  })
+
   useEffect(() => {
     // Move to next step when wallet is connected
     if (isConnected && currentStep === 1) {
@@ -313,16 +334,31 @@ export default function VerificationPage() {
 
             {currentStep === 5 && (
               <div className="rounded-lg border border-gray-200 bg-white p-8 shadow-sm">
-                <div className="text-center">
-                  <Award className="mx-auto mb-4 h-16 w-16 text-[#21A038]" />
-                  <h3 className="mb-2 text-xl font-semibold text-[#0F2B5B]">
-                    Поздравляем!
-                  </h3>
-                  <p className="mb-6 text-gray-600">
-                    Ваш NFT с zkKYC успешно выпущен. Теперь вы можете
-                    использовать его для подтверждения вашей личности.
-                  </p>
-                </div>
+                {!checkUserNFTIsVerified ? (
+                  <div className="text-center">
+                    <ShieldQuestion className="mx-auto mb-4 h-16 w-16 text-[#21A038]" />
+                    <h3 className="mb-2 text-xl font-semibold text-[#0F2B5B]">
+                      Поздравляем!
+                    </h3>
+                    <p className="mb-6 text-gray-600">
+                      Ваш NFT с zkKYC успешно выпущен, вы уже можете увидеть его
+                      в вашем кошльке. Но полноценно использовать его можно
+                      только после подтверждения регулятором, обычно эта
+                      процедура занимает около 24 часов.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <Award className="mx-auto mb-4 h-16 w-16 text-[#21A038]" />
+                    <h3 className="mb-2 text-xl font-semibold text-[#0F2B5B]">
+                      Верификация пройдена!
+                    </h3>
+                    <p className="mb-6 text-gray-600">
+                      Ваш NFT с zkKYC выпущен и успешно прошел верификацию.
+                      Теперь вы можете использовать его на других проектах.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
