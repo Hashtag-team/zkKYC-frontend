@@ -9,12 +9,18 @@ import { Card } from '@/components/ui/card'
 import { StepCard } from '@/components/step-card'
 import { ABI } from '@/lib/web3/abi'
 import { CONTRACT_ADDRESS } from '@/lib/web3/constants'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { ProfileData, UserResponse } from '@/lib/api/types'
+import { QUERY_KEYS } from '@/lib/api/query-keys'
+import axiosInstance from '@/lib/api/instance'
 
 interface UserData {
-  firstName: string
-  lastName: string
-  age: number
-  did: string
+  firstName?: string
+  lastName?: string
+  age?: number | string
+  did?: string
+  birthDate?: string // Добавляем поле для даты рождения в ISO формате
+  gender?: 'F' | 'M' // Добавляем поле для пола
 }
 
 export default function VerificationPage() {
@@ -27,10 +33,8 @@ export default function VerificationPage() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isDataVerified, setIsDataVerified] = useState(false)
 
-  const DID = `did:${address}`
-
   // Generate random user data
-  const generateRandomUserData = () => {
+  const generateRandomUserData = (): UserData => {
     const firstNames = [
       'Александр',
       'Иван',
@@ -56,13 +60,30 @@ export default function VerificationPage() {
       firstNames[Math.floor(Math.random() * firstNames.length)]
     const randomLastName =
       lastNames[Math.floor(Math.random() * lastNames.length)]
-    const randomAge = Math.floor(Math.random() * (65 - 18) + 18) // Age between 18 and 65
+    const randomAge = Math.floor(Math.random() * (65 - 18) + 18)
+
+    // Генерация случайной даты рождения на основе возраста
+    const currentYear = new Date().getFullYear()
+    const birthYear = currentYear - randomAge
+    const birthMonth = Math.floor(Math.random() * 12) + 1
+    const birthDay = Math.floor(Math.random() * 28) + 1 // Упрощаем, не учитываем февраль и месяцы с 31 днем
+
+    // Форматируем дату в ISO строку
+    const birthDate = new Date(
+      birthYear,
+      birthMonth - 1,
+      birthDay,
+    ).toISOString()
+
+    // Случайный выбор пола
+    const gender = 'M'
 
     return {
       firstName: randomFirstName,
       lastName: randomLastName,
       age: randomAge,
-      did: DID,
+      birthDate,
+      gender,
     }
   }
 
@@ -80,16 +101,78 @@ export default function VerificationPage() {
 
   // Handle NFT issuance
   const handleIssueNFT = async () => {
-    // alert('NFT с zkKYC успешно выпущен!')
+    if (!userData?.did) {
+      alert('Данные не были загружены.')
+      return
+    }
+
     const result = await writeContractAsync({
       abi: ABI,
       address: CONTRACT_ADDRESS,
       functionName: 'createDID',
-      args: [DID],
+      args: [userData?.did],
     })
     console.log(result)
 
     setCurrentStep(4)
+  }
+
+  // send user data to backend
+  const { mutate, isPending: isPendingSendUserData } = useMutation<
+    UserResponse,
+    Error,
+    ProfileData
+  >({
+    mutationFn: async (userData) => {
+      const { data } = await axiosInstance.post('/user', userData)
+      return data
+    },
+    // Опциональные параметры для обработки состояний мутации
+    onSuccess: (data) => {
+      console.log('Profile saved successfully:', data)
+      // Здесь можно добавить дополнительные действия после успешного сохранения
+      // Например, обновление кэша или показ уведомления
+    },
+    onError: (error) => {
+      console.error('Error saving profile:', error)
+      // Здесь можно добавить обработку ошибок, например показ toast-уведомления
+    },
+  })
+
+  // get user data from backend
+  const { data: userFromBackend } = useQuery<UserResponse, Error>({
+    queryKey: [QUERY_KEYS.USER_DID, address],
+    queryFn: async () => {
+      if (!address) throw new Error('Address is required')
+      const response = await axiosInstance.get<UserResponse>(`/user/${address}`)
+
+      if (response.status === 404) {
+        console.error('User not found')
+      }
+
+      if (response.data.did) {
+        setUserData({
+          firstName: 'Засекречено',
+          lastName: 'Засекречено',
+          age: 'Засекречено',
+          did: response.data.did,
+        })
+        setCurrentStep(3)
+      }
+      return response.data
+    },
+
+    enabled: !!address, // Запрос выполнится только если address существует
+    retry: false, // Не повторять запрос при 404 ошибке
+  })
+
+  const handleSaveUserData = () => {
+    mutate({
+      birth_date: userData?.birthDate || '1990-12-27T12:59:04Z',
+      full_name: `${userData?.firstName} ${userData?.lastName}`,
+      eth_address: address!,
+      gender: userData?.gender || 'M',
+    })
   }
 
   //   Получение DID юзера, если он у него уже есть
@@ -110,7 +193,7 @@ export default function VerificationPage() {
     }
 
     if (isConnected && userDID) {
-      setCurrentStep(4)
+      setCurrentStep(5)
     }
   }, [isConnected, currentStep, userDID])
 
@@ -181,32 +264,55 @@ export default function VerificationPage() {
                       <span className="font-medium">Возраст:</span>{' '}
                       {userData.age}
                     </p>
-                    <p>
-                      <span className="font-medium">DID:</span> {userData.did}
-                    </p>
+                    {userData.did && (
+                      <p>
+                        <span className="font-medium">DID:</span> {userData.did}
+                      </p>
+                    )}
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-4 flex items-center gap-2"
-                    onClick={handleRegenerateData}
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                    Сгенерировать новые данные
-                  </Button>
+                  {!userFromBackend && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-4 flex items-center gap-2"
+                      onClick={handleRegenerateData}
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Сгенерировать новые данные
+                    </Button>
+                  )}
                 </Card>
                 <div className="flex justify-center">
                   <Button
-                    onClick={handleIssueNFT}
+                    onClick={handleSaveUserData}
+                    disabled={isPendingSendUserData}
                     className="bg-[#21A038] hover:bg-[#21A038]/90"
                   >
-                    Выпустить NFT с zkKYC
+                    Подтвердить данные
                   </Button>
                 </div>
               </div>
             )}
 
             {currentStep === 4 && (
+              <div className="rounded-lg border border-gray-200 bg-white p-8 shadow-sm">
+                <div className="text-center">
+                  <h3 className="mb-2 text-xl font-semibold text-[#0F2B5B]">
+                    Почти готово!
+                  </h3>
+                  <div className="flex justify-center">
+                    <Button
+                      onClick={handleIssueNFT}
+                      className="bg-[#21A038] hover:bg-[#21A038]/90"
+                    >
+                      Mint NFT
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {currentStep === 5 && (
               <div className="rounded-lg border border-gray-200 bg-white p-8 shadow-sm">
                 <div className="text-center">
                   <Award className="mx-auto mb-4 h-16 w-16 text-[#21A038]" />
