@@ -7,7 +7,7 @@ export const Footer: React.FC = () => {
       <div className="container flex flex-col items-center justify-between gap-4 md:flex-row">
         <div className="flex items-center gap-2">
           <span className="text-xl font-bold text-[#0F2B5B]">zkKYC</span>
-          <span className="text-[#21A038]">Сбер</span>
+          <span className="text-[#21A038]">Блокчейн хакатон</span>
         </div>
         <p className="text-muted-foreground text-sm">
           © {new Date().getFullYear()} zkKYC. Все права защищены.

@@ -8,7 +8,7 @@ export const Header: React.FC = () => {
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-xl font-bold text-[#0F2B5B]">zkKYC</span>
-          <span className="text-[#21A038]">Сбер</span>
+          <span className="text-[#21A038]">Блокчейн хакатон</span>
         </div>
         <nav className="hidden gap-6 md:flex">
           <Link

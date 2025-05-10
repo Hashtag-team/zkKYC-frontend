@@ -1,13 +1,19 @@
 'use client'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { SberidSDK } from '@sberid/js-sdk'
 import '@sberid/js-sdk/dist/styles/common.css'
 
 export const SberAuthButton = () => {
   const sberid = useRef<SberidSDK | null>(null)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
+    setMounted(true)
+    return () => setMounted(false)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted) return
 
     const generateRandomString = () => {
       return (
@@ -18,6 +24,7 @@ export const SberAuthButton = () => {
 
     sberid.current = new SberidSDK({
       container: '#sber-id-button-container',
+      baseUrl: 'https://id-ift.sber.ru',
       oidc: {
         response_type: 'code',
         client_type: 'PRIVATE',
@@ -33,15 +40,7 @@ export const SberAuthButton = () => {
         clientId: process.env.NEXT_PUBLIC_SBER_ID_CLIENT_ID!,
         clientName: 'zkKYC Frontend',
       },
-      display: 'popup',
-      onSuccessCallback: (result) => {
-        console.log('Auth success:', result)
-        window.location.href = '/profile'
-      },
-      onErrorCallback: (error) => {
-        console.error('Auth error:', error)
-        alert('Ошибка авторизации')
-      },
+      display: 'page',
     })
 
     sberid.current.enable()
@@ -49,7 +48,7 @@ export const SberAuthButton = () => {
     return () => {
       sberid.current?.disable()
     }
-  }, [])
+  }, [mounted])
 
   return <div id="sber-id-button-container"></div>
 }

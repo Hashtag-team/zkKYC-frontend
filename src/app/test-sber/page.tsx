@@ -1,11 +1,12 @@
 'use client'
-
 import dynamic from 'next/dynamic'
 
 const SberAuthButton = dynamic(
   () =>
     import('@/components/sber-auth-button').then((mod) => mod.SberAuthButton),
-  { ssr: false }, // Add this option to disable server-side rendering
+  {
+    ssr: false,
+  },
 )
 
 export default function TestPage() {
