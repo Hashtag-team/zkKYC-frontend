@@ -1,5 +1,6 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import { useState, useEffect } from 'react'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useAccount, useReadContract, useWriteContract } from 'wagmi'
@@ -20,6 +21,14 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { ProfileData, UserResponse } from '@/lib/api/types'
 import { QUERY_KEYS } from '@/lib/api/query-keys'
 import axiosInstance from '@/lib/api/instance'
+
+const SberAuthButton = dynamic(
+  () =>
+    import('@/components/sber-auth-button').then((mod) => mod.SberAuthButton),
+  {
+    ssr: false,
+  },
+)
 
 interface UserData {
   firstName?: string
@@ -98,11 +107,11 @@ export default function VerificationPage() {
   }
 
   // Handle Sber ID authorization
-  const handleSberIdAuth = () => {
-    setUserData(generateRandomUserData())
-    setIsDataVerified(true)
-    setCurrentStep(3)
-  }
+  // const handleSberIdAuth = () => {
+  //   setUserData(generateRandomUserData())
+  //   setIsDataVerified(true)
+  //   setCurrentStep(3)
+  // }
 
   // Handle regenerating user data
   const handleRegenerateData = () => {
@@ -252,12 +261,7 @@ export default function VerificationPage() {
                   авторизуйтесь через Сбер ID.
                 </p>
                 <div className="flex justify-center">
-                  <Button
-                    onClick={handleSberIdAuth}
-                    className="bg-[#21A038] hover:bg-[#21A038]/90"
-                  >
-                    Авторизоваться через Сбер ID
-                  </Button>
+                  <SberAuthButton />
                 </div>
               </div>
             )}
