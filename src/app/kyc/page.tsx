@@ -243,7 +243,7 @@ function VerificationContent() {
             {!userDID ? (
               'Верификация пользователя'
             ) : (
-              <span>DID пользователя: {userDID}</span>
+              <span>Идентификатор пользователя: {userDID}</span>
             )}
           </h1>
 
@@ -398,21 +398,22 @@ function VerificationContent() {
                 active={currentStep === 2}
                 completed={currentStep > 2}
               />
+
               <StepCard
                 number={3}
-                title="Проверка данных"
-                description="Проверьте корректность ваших персональных данных"
-                icon={<CheckCircle className="h-10 w-10 text-[#21A038]" />}
-                active={currentStep === 3}
-                completed={currentStep > 3}
-              />
-              <StepCard
-                number={4}
                 title="Выпустите NFT с zkKYC"
                 description="Получите уникальный NFT-сертификат, подтверждающий вашу верификацию"
                 icon={<Award className="h-10 w-10 text-[#21A038]" />}
                 active={currentStep === 4}
                 completed={currentStep > 4}
+              />
+              <StepCard
+                number={4}
+                title="Проверка данных"
+                description="Проверьте корректность ваших персональных данных"
+                icon={<CheckCircle className="h-10 w-10 text-[#21A038]" />}
+                active={currentStep === 3}
+                completed={checkUserNFTIsVerified}
               />
             </div>
           </div>
