@@ -1,7 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useAccount, useReadContract, useWriteContract } from 'wagmi'
 import { Award, CheckCircle, ShieldQuestion, User, Wallet } from 'lucide-react'
@@ -37,7 +37,7 @@ interface UserData {
 // Тип по которому проверяем веревецирванный у пользователя NFT или нет
 const CLAIM_TYPE = 'verify'
 
-export default function VerificationPage() {
+function VerificationContent() {
   const searchParams = useSearchParams()
   const { userData: authUserData, setAuthData } = useAuth()
 
@@ -209,7 +209,7 @@ export default function VerificationPage() {
     }
 
     // Если есть сохраненные данные, используем их
-    if (authUserData) {
+    if (authUserData && address) {
       console.log('authUserData: ', authUserData)
 
       setUserData({
@@ -419,5 +419,13 @@ export default function VerificationPage() {
         </div>
       </section>
     </main>
+  )
+}
+
+export default function VerificationPage() {
+  return (
+    <Suspense>
+      <VerificationContent />
+    </Suspense>
   )
 }
