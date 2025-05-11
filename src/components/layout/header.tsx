@@ -41,12 +41,12 @@ export const Header: React.FC = () => {
         <div className="flex gap-2">
           <ConnectButton label="Подключить кошелек" />
 
-          <div className="flex gap-2">
+          <Link href="/panel" className="flex gap-2">
             {isAdmin && <Badge variant="outline">Admin</Badge>}
             {isRegulator && <Badge variant="secondary">Regulator</Badge>}
             {isBusiness && <Badge variant="destructive">Business</Badge>}
             {isVerifier && <Badge variant="default">Verifier</Badge>}
-          </div>
+          </Link>
         </div>
       </div>
     </header>

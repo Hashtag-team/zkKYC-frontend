@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { StepCard } from '@/components/step-card'
 import { ABI } from '@/lib/web3/abi'
-import { CONTRACT_ADDRESS } from '@/lib/web3/constants'
+import { CLAIM_TYPE, CONTRACT_ADDRESS } from '@/lib/web3/constants'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { ProfileData, UserResponse } from '@/lib/api/types'
 import { QUERY_KEYS } from '@/lib/api/query-keys'
@@ -34,9 +34,6 @@ interface UserData {
   gender?: 'F' | 'M' // Добавляем поле для пола
 }
 
-// Тип по которому проверяем веревецирванный у пользователя NFT или нет
-const CLAIM_TYPE = 'verify'
-
 function VerificationContent() {
   const searchParams = useSearchParams()
   const { userData: authUserData, setAuthData } = useAuth()
@@ -60,6 +57,8 @@ function VerificationContent() {
 
   // Handle NFT issuance
   const handleIssueNFT = async () => {
+    console.log(userData)
+
     if (!userData?.did) {
       alert('Данные не были загружены.')
       return
@@ -89,6 +88,10 @@ function VerificationContent() {
     // Опциональные параметры для обработки состояний мутации
     onSuccess: (data) => {
       console.log('Profile saved successfully:', data)
+      setUserData({
+        ...userData,
+        did: data.did,
+      })
       setCurrentStep(4)
     },
     onError: (error) => {
@@ -99,7 +102,10 @@ function VerificationContent() {
 
   // get user data from backend
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { data: userFromBackend } = useQuery<UserResponse, Error>({
+  const { data: userFromBackend, refetch: refetchUserData } = useQuery<
+    UserResponse,
+    Error
+  >({
     queryKey: [QUERY_KEYS.USER_DID, address],
     queryFn: async () => {
       if (!address) throw new Error('Address is required')
@@ -111,9 +117,7 @@ function VerificationContent() {
 
       if (response.data.did) {
         setUserData({
-          firstName: 'Засекречено',
-          lastName: 'Засекречено',
-          age: 'Засекречено',
+          ...userData,
           did: response.data.did,
         })
         setCurrentStep(4)
@@ -150,11 +154,13 @@ function VerificationContent() {
     abi: ABI,
     address: CONTRACT_ADDRESS,
     functionName: 'hasValidClaim',
-    args: [userData?.did as string, CLAIM_TYPE],
+    args: [(userData?.did || userDID) as string, CLAIM_TYPE],
     query: {
-      enabled: !!userData?.did,
+      enabled: !!userData?.did || !!userDID,
     },
   })
+
+  console.log('verif: ', checkUserNFTIsVerified, userData?.did)
 
   useEffect(() => {
     // Move to next step when wallet is connected
@@ -168,6 +174,9 @@ function VerificationContent() {
   }, [isConnected, currentStep, userDID])
 
   useEffect(() => {
+    if (!address) {
+      setCurrentStep(1)
+    }
     const handleSberAuth = async () => {
       const code = searchParams.get('code')
       if (!code) return
@@ -199,6 +208,8 @@ function VerificationContent() {
           gender: userData.gender === 'female' ? 'F' : 'M',
         })
 
+        await refetchUserData()
+
         setIsDataVerified(true)
         setCurrentStep(3)
       } catch (error) {
@@ -211,6 +222,8 @@ function VerificationContent() {
     // Если есть сохраненные данные, используем их
     if (authUserData && address) {
       console.log('authUserData: ', authUserData)
+
+      // const TEST_DATA = '123123asd'
 
       setUserData({
         firstName: authUserData.given_name,
@@ -226,7 +239,7 @@ function VerificationContent() {
     }
 
     handleSberAuth()
-  }, [searchParams, setAuthData, authUserData])
+  }, [searchParams, setAuthData, authUserData, address])
 
   return (
     <main className="flex-1">
@@ -410,7 +423,7 @@ function VerificationContent() {
               <StepCard
                 number={4}
                 title="Проверка данных"
-                description="Проверьте корректность ваших персональных данных"
+                description="Подождите пока мы проверим ваши данные"
                 icon={<CheckCircle className="h-10 w-10 text-[#21A038]" />}
                 active={currentStep === 3}
                 completed={checkUserNFTIsVerified}
