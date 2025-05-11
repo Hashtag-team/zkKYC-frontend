@@ -1,18 +1,10 @@
 'use client'
 
-import https from 'https'
 import dynamic from 'next/dynamic'
 import { useState, useEffect } from 'react'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useAccount, useReadContract, useWriteContract } from 'wagmi'
-import {
-  Award,
-  CheckCircle,
-  RefreshCw,
-  ShieldQuestion,
-  User,
-  Wallet,
-} from 'lucide-react'
+import { Award, CheckCircle, ShieldQuestion, User, Wallet } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { StepCard } from '@/components/step-card'
@@ -23,7 +15,7 @@ import { ProfileData, UserResponse } from '@/lib/api/types'
 import { QUERY_KEYS } from '@/lib/api/query-keys'
 import axiosInstance from '@/lib/api/instance'
 import { useSearchParams } from 'next/navigation'
-import axios from 'axios'
+import { useAuth } from '@/components/contexts/auth-context'
 
 const SberAuthButton = dynamic(
   () =>
@@ -47,6 +39,8 @@ const CLAIM_TYPE = 'verify'
 
 export default function VerificationPage() {
   const searchParams = useSearchParams()
+  const { userData: authUserData, setAuthData } = useAuth()
+
   const { writeContractAsync } = useWriteContract()
 
   const { isConnected, address } = useAccount()
@@ -57,71 +51,12 @@ export default function VerificationPage() {
   const [isDataVerified, setIsDataVerified] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
-  // Generate random user data
-  const generateRandomUserData = (): UserData => {
-    const firstNames = [
-      'Александр',
-      'Иван',
-      'Сергей',
-      'Дмитрий',
-      'Михаил',
-      'Андрей',
-      'Николай',
-      'Владимир',
-    ]
-    const lastNames = [
-      'Иванов',
-      'Смирнов',
-      'Кузнецов',
-      'Попов',
-      'Васильев',
-      'Петров',
-      'Соколов',
-      'Михайлов',
-    ]
-
-    const randomFirstName =
-      firstNames[Math.floor(Math.random() * firstNames.length)]
-    const randomLastName =
-      lastNames[Math.floor(Math.random() * lastNames.length)]
-    const randomAge = Math.floor(Math.random() * (65 - 18) + 18)
-
-    // Генерация случайной даты рождения на основе возраста
-    const currentYear = new Date().getFullYear()
-    const birthYear = currentYear - randomAge
-    const birthMonth = Math.floor(Math.random() * 12) + 1
-    const birthDay = Math.floor(Math.random() * 28) + 1 // Упрощаем, не учитываем февраль и месяцы с 31 днем
-
-    // Форматируем дату в ISO строку
-    const birthDate = new Date(
-      birthYear,
-      birthMonth - 1,
-      birthDay,
-    ).toISOString()
-
-    // Случайный выбор пола
-    const gender = 'M'
-
-    return {
-      firstName: randomFirstName,
-      lastName: randomLastName,
-      age: randomAge,
-      birthDate,
-      gender,
-    }
-  }
-
   // Handle Sber ID authorization
   // const handleSberIdAuth = () => {
   //   setUserData(generateRandomUserData())
   //   setIsDataVerified(true)
   //   setCurrentStep(3)
   // }
-
-  // Handle regenerating user data
-  const handleRegenerateData = () => {
-    setUserData(generateRandomUserData())
-  }
 
   // Handle NFT issuance
   const handleIssueNFT = async () => {
@@ -163,6 +98,7 @@ export default function VerificationPage() {
   })
 
   // get user data from backend
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { data: userFromBackend } = useQuery<UserResponse, Error>({
     queryKey: [QUERY_KEYS.USER_DID, address],
     queryFn: async () => {
@@ -231,82 +167,66 @@ export default function VerificationPage() {
     }
   }, [isConnected, currentStep, userDID])
 
-  // Эффект для обработки авторизации при монтировании
   useEffect(() => {
     const handleSberAuth = async () => {
       const code = searchParams.get('code')
-      const state = searchParams.get('state')
-
-      console.log(state)
-
       if (!code) return
 
       setIsLoading(true)
       try {
-        // Шаг 1: Получаем данные юзера по токену от Сбера
-        const httpsAgent = new https.Agent({
-          cert: process.env.NEXT_PUBLIC_SBER_CERT,
-          key: process.env.NEXT_PUBLIC_SBER_CERT_KEY,
-          passphrase: 'Block4ain!',
+        const response = await fetch('/api/auth', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ code }),
         })
 
-        const userInfo = await axios.post(
-          'https://oauth-ift.sber.ru/ru/prod/tokens/v2/oidc',
-          new URLSearchParams({
-            grant_type: 'authorization_code',
-            code,
-            client_id: process.env.NEXT_PUBLIC_SBER_CLIENT_ID!,
-            client_secret: process.env.NEXT_PUBLIC_SBER_CLIENT_SECRET!,
-            redirect_uri: `${window.location.origin}/kyc`,
-          }),
-          {
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
-              Accept: 'application/json',
-              rquid: Math.random().toString(36).substring(7),
-            },
-            httpsAgent,
-          },
-        )
+        if (!response.ok) throw new Error('Auth failed')
 
-        console.log('Получены данные юзера: ', userInfo)
+        const { accessToken, userData } = await response.json()
 
-        // Шаг 3: Сохраняем данные
-        const userData = {
-          firstName: userInfo.data.given_name,
-          lastName: userInfo.data.family_name,
+        // Сохраняем данные в контекст и localStorage
+        setAuthData(accessToken, userData)
+
+        // Обновляем состояние пользователя
+        setUserData({
+          firstName: userData.given_name,
+          lastName: userData.family_name,
           birthDate: new Date(
-            userInfo.data.birthdate.split('.').reverse().join('-'),
+            userData.birthdate.split('.').reverse().join('-'),
           ).toISOString(),
-          gender: 'M' as UserData['gender'], // Заглушка, нужно получить из API
-        }
+          gender: userData.gender === 'female' ? 'F' : 'M',
+        })
 
-        // Сохраняем в локальное хранилище
-        localStorage.setItem('sberAuthData', JSON.stringify(userData))
-
-        // Обновляем состояние
-        setUserData(userData)
         setIsDataVerified(true)
         setCurrentStep(3)
       } catch (error) {
-        console.error('Sber auth failed:', error)
-        alert('Ошибка авторизации через Сбер ID')
+        console.error('Auth error:', error)
       } finally {
         setIsLoading(false)
       }
     }
 
-    // Проверяем сохраненные данные при загрузке
-    const savedData = localStorage.getItem('sberAuthData')
-    if (savedData) {
-      setUserData(JSON.parse(savedData))
+    // Если есть сохраненные данные, используем их
+    if (authUserData) {
+      console.log('authUserData: ', authUserData)
+
+      setUserData({
+        firstName: authUserData.given_name,
+        lastName: authUserData.family_name,
+        birthDate: new Date(
+          authUserData.birthdate.split('.').reverse().join('-'),
+        ).toISOString(),
+        gender: authUserData.gender === 'female' ? 'F' : 'M',
+      })
       setIsDataVerified(true)
       setCurrentStep(3)
       return
     }
 
     handleSberAuth()
-  }, [])
+  }, [searchParams, setAuthData, authUserData])
 
   return (
     <main className="flex-1">
@@ -374,8 +294,8 @@ export default function VerificationPage() {
                       {userData.lastName}
                     </p>
                     <p>
-                      <span className="font-medium">Возраст:</span>{' '}
-                      {userData.age}
+                      <span className="font-medium">Дата рождения:</span>{' '}
+                      {userData.birthDate?.split('T')[0]}
                     </p>
                     {userData.did && (
                       <p>
@@ -383,7 +303,7 @@ export default function VerificationPage() {
                       </p>
                     )}
                   </div>
-                  {!userFromBackend && (
+                  {/* {!userFromBackend && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -393,7 +313,7 @@ export default function VerificationPage() {
                       <RefreshCw className="h-4 w-4" />
                       Сгенерировать новые данные
                     </Button>
-                  )}
+                  )} */}
                 </Card>
                 <div className="flex justify-center">
                   <Button
