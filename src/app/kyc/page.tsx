@@ -1,5 +1,6 @@
 'use client'
 
+import https from 'https'
 import dynamic from 'next/dynamic'
 import { useState, useEffect } from 'react'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
@@ -21,6 +22,8 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { ProfileData, UserResponse } from '@/lib/api/types'
 import { QUERY_KEYS } from '@/lib/api/query-keys'
 import axiosInstance from '@/lib/api/instance'
+import { useSearchParams } from 'next/navigation'
+import axios from 'axios'
 
 const SberAuthButton = dynamic(
   () =>
@@ -43,6 +46,7 @@ interface UserData {
 const CLAIM_TYPE = 'verify'
 
 export default function VerificationPage() {
+  const searchParams = useSearchParams()
   const { writeContractAsync } = useWriteContract()
 
   const { isConnected, address } = useAccount()
@@ -51,6 +55,7 @@ export default function VerificationPage() {
   const [userData, setUserData] = useState<UserData | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isDataVerified, setIsDataVerified] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
   // Generate random user data
   const generateRandomUserData = (): UserData => {
@@ -226,9 +231,93 @@ export default function VerificationPage() {
     }
   }, [isConnected, currentStep, userDID])
 
+  // Эффект для обработки авторизации при монтировании
+  useEffect(() => {
+    const handleSberAuth = async () => {
+      const code = searchParams.get('code')
+      const state = searchParams.get('state')
+
+      console.log(state)
+
+      if (!code) return
+
+      setIsLoading(true)
+      try {
+        // Шаг 1: Получаем данные юзера по токену от Сбера
+        const httpsAgent = new https.Agent({
+          cert: process.env.NEXT_PUBLIC_SBER_CERT,
+          key: process.env.NEXT_PUBLIC_SBER_CERT_KEY,
+          passphrase: 'Block4ain!',
+        })
+
+        const userInfo = await axios.post(
+          'https://oauth-ift.sber.ru/ru/prod/tokens/v2/oidc',
+          new URLSearchParams({
+            grant_type: 'authorization_code',
+            code,
+            client_id: process.env.NEXT_PUBLIC_SBER_CLIENT_ID!,
+            client_secret: process.env.NEXT_PUBLIC_SBER_CLIENT_SECRET!,
+            redirect_uri: `${window.location.origin}/kyc`,
+          }),
+          {
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              Accept: 'application/json',
+              rquid: Math.random().toString(36).substring(7),
+            },
+            httpsAgent,
+          },
+        )
+
+        console.log('Получены данные юзера: ', userInfo)
+
+        // Шаг 3: Сохраняем данные
+        const userData = {
+          firstName: userInfo.data.given_name,
+          lastName: userInfo.data.family_name,
+          birthDate: new Date(
+            userInfo.data.birthdate.split('.').reverse().join('-'),
+          ).toISOString(),
+          gender: 'M' as UserData['gender'], // Заглушка, нужно получить из API
+        }
+
+        // Сохраняем в локальное хранилище
+        localStorage.setItem('sberAuthData', JSON.stringify(userData))
+
+        // Обновляем состояние
+        setUserData(userData)
+        setIsDataVerified(true)
+        setCurrentStep(3)
+      } catch (error) {
+        console.error('Sber auth failed:', error)
+        alert('Ошибка авторизации через Сбер ID')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    // Проверяем сохраненные данные при загрузке
+    const savedData = localStorage.getItem('sberAuthData')
+    if (savedData) {
+      setUserData(JSON.parse(savedData))
+      setIsDataVerified(true)
+      setCurrentStep(3)
+      return
+    }
+
+    handleSberAuth()
+  }, [])
+
   return (
     <main className="flex-1">
       <section className="relative overflow-hidden bg-white py-16 md:py-24">
+        {isLoading && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="rounded-lg bg-white p-8">
+              Идет авторизация через Сбер ID...
+            </div>
+          </div>
+        )}
         <div className="container max-w-6xl">
           <h1 className="mb-12 text-center text-3xl font-bold tracking-tighter text-[#0F2B5B] sm:text-4xl">
             {!userDID ? (
